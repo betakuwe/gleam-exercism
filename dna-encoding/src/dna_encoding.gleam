@@ -1,4 +1,3 @@
-import gleam/iterator.{Done, Next}
 import gleam/list
 import gleam/result
 
@@ -29,21 +28,21 @@ pub fn decode_nucleotide(nucleotide: Int) -> Result(Nucleotide, Nil) {
 }
 
 pub fn encode(dna: List(Nucleotide)) -> BitArray {
-  list.fold(over: dna, from: <<>>, with: fn(encoded_dna, nucleotide) {
-    <<encoded_dna:bits, encode_nucleotide(nucleotide):2>>
-  })
+  use encoded_dna, nucleotide <- list.fold(dna, <<>>)
+  <<encoded_dna:bits, encode_nucleotide(nucleotide):2>>
 }
 
 pub fn decode(dna: BitArray) -> Result(List(Nucleotide), Nil) {
-  iterator.unfold(Ok(dna), fn(remaining_dna) {
-    case remaining_dna {
-      Ok(<<>>) -> Done
-      Ok(<<nucleotide:2, rest:bits>>) ->
-        Next(decode_nucleotide(nucleotide), Ok(rest))
-      Ok(_) -> Next(Error(Nil), Error(Nil))
-      Error(Nil) -> Done
+  decode_loop(dna, [])
+}
+
+fn decode_loop(dna, nucleotide_list) {
+  case dna {
+    <<>> -> Ok(list.reverse(nucleotide_list))
+    <<nucleotide_bits:2, dna_rest:bits>> -> {
+      use nucleotide <- result.try(decode_nucleotide(nucleotide_bits))
+      decode_loop(dna_rest, [nucleotide, ..nucleotide_list])
     }
-  })
-  |> iterator.to_list
-  |> result.all
+    _ -> Error(Nil)
+  }
 }
