@@ -86,21 +86,16 @@ fn push_forth(push: List(ForthToken), forth: Forth) -> Result(Forth, ForthError)
           case a {
             0 -> Error(DivisionByZero)
             _ ->
-              push_forth(
-                push_rest,
-                Forth(..forth, stack: [b / a, ..stack_rest]),
-              )
+              Forth(..forth, stack: [b / a, ..stack_rest])
+              |> push_forth(push_rest, _)
           }
         ForthColon, _ -> define_forth_word_start(push_rest, forth)
         ForthSemicolon, _ -> Error(InvalidWord)
         ForthWord(word_string), _ -> {
           case dict.get(forth.words, word_string) {
-            Ok(word_definition_reversed) -> {
-              push_forth(
-                list.concat([word_definition_reversed, push_rest]),
-                forth,
-              )
-            }
+            Ok(word_definition_reversed) ->
+              list.concat([word_definition_reversed, push_rest])
+              |> push_forth(forth)
             Error(Nil) -> {
               let replace_token_result = string_to_token(word_string)
               use replace_token <- result.try(replace_token_result)
@@ -131,37 +126,31 @@ fn create_forth_word_definition(
   push: List(ForthToken),
   forth: Forth,
   word: String,
-  definition_reversed: List(ForthToken),
+  acc: List(ForthToken),
 ) -> Result(Forth, ForthError) {
   case push {
     [] -> Error(InvalidWord)
     [token, ..push_rest] ->
       case token {
         ForthSemicolon -> {
-          let added_word =
-            dict.insert(forth.words, word, list.reverse(definition_reversed))
+          let added_word = dict.insert(forth.words, word, list.reverse(acc))
           push_forth(push_rest, Forth(..forth, words: added_word))
         }
         ForthColon -> Error(InvalidWord)
         ForthWord(token_word) ->
           case dict.get(forth.words, token_word) {
             Ok(word_definition) ->
-              list.concat([word_definition, definition_reversed])
+              list.concat([word_definition, acc])
               |> create_forth_word_definition(push_rest, forth, word, _)
             Error(Nil) -> {
               let replace_token_result = string_to_token(token_word)
               use replace_token <- result.try(replace_token_result)
-              create_forth_word_definition(push_rest, forth, word, [
-                replace_token,
-                ..definition_reversed
-              ])
+              [replace_token, ..acc]
+              |> create_forth_word_definition(push_rest, forth, word, _)
             }
           }
         _ ->
-          create_forth_word_definition(push_rest, forth, word, [
-            token,
-            ..definition_reversed
-          ])
+          create_forth_word_definition(push_rest, forth, word, [token, ..acc])
       }
   }
 }
