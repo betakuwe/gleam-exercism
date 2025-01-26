@@ -1,12 +1,12 @@
-import gleam/int
 import gleam/dict.{type Dict}
+import gleam/int
 import gleam/list
 import gleam/regex
 import gleam/result
 import gleam/string
 
 pub type Forth {
-  Forth(stack: List(ForthToken), words: Dict(String, List(ForthToken)))
+  Forth(stack: List(Int), words: Dict(String, List(ForthToken)))
 }
 
 pub type ForthToken {
@@ -36,14 +36,8 @@ pub fn new() -> Forth {
 }
 
 pub fn format_stack(f: Forth) -> String {
-  f.stack
-  |> list.reverse
-  |> list.filter_map(fn(token) {
-    case token {
-      ForthInt(int) -> Ok(int.to_string(int))
-      _ -> Error(Nil)
-    }
-  })
+  list.reverse(f.stack)
+  |> list.map(int.to_string)
   |> string.join(" ")
 }
 
@@ -56,11 +50,10 @@ pub fn eval(f: Forth, prog: String) -> Result(Forth, ForthError) {
 }
 
 fn parse_forth(string: String) -> Result(ForthToken, ForthError) {
-  let check_int = case int.parse(string) {
-    Ok(int) -> Ok(ForthInt(int))
-    Error(_) -> Error(UnknownWord)
-  }
-  use <- result.lazy_or(check_int)
+  let if_int =
+    int.parse(string)
+    |> result.map(ForthInt(_))
+  use _ <- result.try_recover(if_int)
   case string {
     ":" -> Ok(ForthColon)
     ";" -> Ok(ForthSemicolon)
@@ -73,47 +66,29 @@ fn push_forth(push: List(ForthToken), forth: Forth) -> Result(Forth, ForthError)
     [] -> Ok(forth)
     [token, ..push_rest] ->
       case token, forth.stack {
-        ForthInt(_), _ ->
-          push_forth(push_rest, Forth(..forth, stack: [token, ..forth.stack]))
-        ForthDup, [ForthInt(a), ..] ->
-          push_forth(
-            push_rest,
-            Forth(..forth, stack: [ForthInt(a), ..forth.stack]),
-          )
+        ForthInt(int), _ ->
+          push_forth(push_rest, Forth(..forth, stack: [int, ..forth.stack]))
+        ForthDup, [a, ..] ->
+          push_forth(push_rest, Forth(..forth, stack: [a, ..forth.stack]))
         ForthDrop, [_, ..stack_rest] ->
           push_forth(push_rest, Forth(..forth, stack: stack_rest))
-        ForthSwap, [ForthInt(a), ForthInt(b), ..stack_rest] ->
-          push_forth(
-            push_rest,
-            Forth(..forth, stack: [ForthInt(b), ForthInt(a), ..stack_rest]),
-          )
-        ForthOver, [_, ForthInt(b), ..] ->
-          push_forth(
-            push_rest,
-            Forth(..forth, stack: [ForthInt(b), ..forth.stack]),
-          )
-        ForthPlus, [ForthInt(a), ForthInt(b), ..stack_rest] ->
-          push_forth(
-            push_rest,
-            Forth(..forth, stack: [ForthInt(b + a), ..stack_rest]),
-          )
-        ForthMinus, [ForthInt(a), ForthInt(b), ..stack_rest] ->
-          push_forth(
-            push_rest,
-            Forth(..forth, stack: [ForthInt(b - a), ..stack_rest]),
-          )
-        ForthTimes, [ForthInt(a), ForthInt(b), ..stack_rest] ->
-          push_forth(
-            push_rest,
-            Forth(..forth, stack: [ForthInt(b * a), ..stack_rest]),
-          )
-        ForthDivide, [ForthInt(a), ForthInt(b), ..stack_rest] ->
+        ForthSwap, [a, b, ..stack_rest] ->
+          push_forth(push_rest, Forth(..forth, stack: [b, a, ..stack_rest]))
+        ForthOver, [_, b, ..] ->
+          push_forth(push_rest, Forth(..forth, stack: [b, ..forth.stack]))
+        ForthPlus, [a, b, ..stack_rest] ->
+          push_forth(push_rest, Forth(..forth, stack: [b + a, ..stack_rest]))
+        ForthMinus, [a, b, ..stack_rest] ->
+          push_forth(push_rest, Forth(..forth, stack: [b - a, ..stack_rest]))
+        ForthTimes, [a, b, ..stack_rest] ->
+          push_forth(push_rest, Forth(..forth, stack: [b * a, ..stack_rest]))
+        ForthDivide, [a, b, ..stack_rest] ->
           case a {
             0 -> Error(DivisionByZero)
             _ ->
               push_forth(
                 push_rest,
-                Forth(..forth, stack: [ForthInt(b / a), ..stack_rest]),
+                Forth(..forth, stack: [b / a, ..stack_rest]),
               )
           }
         ForthColon, _ -> define_forth_word_start(push_rest, forth)
