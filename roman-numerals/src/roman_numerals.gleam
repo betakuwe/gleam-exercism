@@ -1,28 +1,29 @@
-import gleam/bool
-import gleam/dict
 import gleam/list
+import gleam/string
 
-const ref = [
-  ["", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX"],
-  ["", "X", "XX", "XXX", "XL", "L", "LX", "LXX", "LXXX", "XC"],
-  ["", "C", "CC", "CCC", "CD", "D", "DC", "DCC", "DCCC", "CM"],
-  ["", "M", "MM", "MMM"],
+const vals = [
+  #("M", 1000),
+  #("CM", 900),
+  #("D", 500),
+  #("CD", 400),
+  #("C", 100),
+  #("XC", 90),
+  #("L", 50),
+  #("XL", 40),
+  #("X", 10),
+  #("IX", 9),
+  #("V", 5),
+  #("IV", 4),
+  #("I", 1),
 ]
 
 pub fn convert(number: Int) -> String {
-  list.index_map(ref, fn(row, order) {
-    let order_dict =
-      list.index_map(row, fn(roman, digit) { #(digit, roman) })
-      |> dict.from_list
-    #(order, order_dict)
-  })
-  |> dict.from_list
-  |> convert_loop(number, 0, "")
-}
-
-fn convert_loop(ref_dict, number, order, acc) {
-  use <- bool.guard(number == 0, acc)
-  let assert Ok(order_dict) = dict.get(ref_dict, order)
-  let assert Ok(roman) = dict.get(order_dict, number % 10)
-  convert_loop(ref_dict, number / 10, order + 1, roman <> acc)
+  let #(_, romans) =
+    list.map_fold(vals, number, fn(number, val_pair) {
+      let #(roman, value) = val_pair
+      let quotient = number / value
+      let remainder = number % value
+      #(remainder, string.repeat(roman, quotient))
+    })
+  string.join(romans, "")
 }
