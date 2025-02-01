@@ -1,6 +1,5 @@
-import gleam/dict
-import gleam/function
 import gleam/list
+import gleam/set
 import gleam/string
 
 pub fn is_isogram(phrase phrase: String) -> Bool {
@@ -9,7 +8,5 @@ pub fn is_isogram(phrase phrase: String) -> Bool {
     |> string.replace(" ", "")
     |> string.replace("-", "")
     |> string.to_graphemes
-  list.group(just_letters, function.identity)
-  |> dict.size
-  == list.length(just_letters)
+  set.from_list(just_letters) |> set.size == list.length(just_letters)
 }
